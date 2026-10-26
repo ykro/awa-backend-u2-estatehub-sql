@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  # Un cambio que solo toca documentación (ADR, DEPLOYMENT.md, README) no gasta minutos de CI.
+  push:
+    paths-ignore: ["**.md"]
+  pull_request:
+    paths-ignore: ["**.md"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Un push nuevo cancela la corrida anterior de la misma rama.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: "0.13.1" # la misma versión que el Dockerfile y el calificador
+          python-version: "3.13"
+
+      - name: Instalar dependencias
+        run: uv sync --locked
+
+      - name: Ruff (lint)
+        run: uv run ruff check .
+
+      - name: Ruff (formato)
+        run: uv run ruff format --check .
+
+      - name: Pytest
+        run: uv run pytest -v
+
+      - name: Resumen
+        if: always()
+        run: |
+          {
+            echo "## Resultado del CI"
+            echo ""
+            echo "Este resultado es retroalimentación para ti, no es tu nota."
+            echo "La nota oficial la calcula el calificador del curso con tests ocultos adicionales,"
+            echo "mutantes para evaluar tus tests propios y verificación de integridad."
+          } >> "$GITHUB_STEP_SUMMARY"
